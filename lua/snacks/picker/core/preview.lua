@@ -56,6 +56,9 @@ function M.new(picker)
   local self = setmetatable({}, M)
   self.opts = opts.previewers
   self.winhl = Snacks.picker.highlight.winhl("SnacksPickerPreview", { CursorLine = "Visual" })
+  local user_preview = opts.win.preview or {}
+  local user_on_buf = user_preview.on_buf
+  local user_on_win = user_preview.on_win
   local win_opts = Snacks.win.resolve(
     {
       title_pos = "center",
@@ -74,9 +77,15 @@ function M.new(picker)
       enter = false,
       width = 0,
       height = 0,
-      on_win = function()
+      on_buf = user_on_buf and function(win)
+        user_on_buf(win)
+      end or nil,
+      on_win = function(win)
         self.item = nil
         self:reset()
+        if user_on_win then
+          user_on_win(win)
+        end
       end,
       wo = {
         winhighlight = self.winhl,

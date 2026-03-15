@@ -19,6 +19,9 @@ function M.new(picker)
   self.mode = vim.fn.mode()
   picker.matcher:init(self.filter.pattern)
 
+  local user_input = picker.opts.win.input or {}
+  local user_on_buf = user_input.on_buf
+  local user_on_win = user_input.on_win
   self.win = Snacks.win(Snacks.win.resolve(picker.opts.win.input, {
     show = false,
     enter = false,
@@ -36,9 +39,15 @@ function M.new(picker)
       local text = picker.opts.live and self.filter.search or self.filter.pattern
       vim.api.nvim_buf_set_lines(win.buf, 0, -1, false, { text })
       vim.bo[win.buf].modified = false
+      if user_on_buf then
+        user_on_buf(win)
+      end
     end,
-    on_win = function()
+    on_win = function(win)
       self:highlights()
+      if user_on_win then
+        user_on_win(win)
+      end
     end,
     bo = {
       filetype = "snacks_picker_input",

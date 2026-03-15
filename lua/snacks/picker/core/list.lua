@@ -68,14 +68,23 @@ function M.new(picker)
   self.selected_map = {}
   self.matcher = require("snacks.picker.core.matcher").new(picker.opts.matcher)
   self.matcher_regex = require("snacks.picker.core.matcher").new({ regex = true })
+  local user_list = picker.opts.win.list or {}
+  local user_on_buf = user_list.on_buf
+  local user_on_win = user_list.on_win
   local win_opts = Snacks.win.resolve(picker.opts.win.list, {
     show = false,
     enter = false,
-    on_win = function()
+    on_buf = user_on_buf and function(win)
+      user_on_buf(win)
+    end or nil,
+    on_win = function(win)
       self:on_show()
       lists[
         self.win.win --[[@as number]]
       ] = self
+      if user_on_win then
+        user_on_win(win)
+      end
     end,
     minimal = true,
     bo = { modifiable = false, filetype = "snacks_picker_list" },
