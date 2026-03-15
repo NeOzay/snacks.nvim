@@ -143,10 +143,10 @@ function M:update(picker)
   end
   local winhl = self.winhl
   if main then
-    winhl = (vim.wo[main].winhighlight .. ",Normal:Normal," .. "CursorLine:SnacksPickerPreviewCursorLine"):gsub(
-      "^,",
-      ""
-    )
+    winhl = Snacks.util.winhl(vim.wo[main].winhighlight, {
+      Normal = "Normal",
+      CursorLine = "SnacksPickerPreviewCursorLine",
+    })
   end
   self.win.opts.wo.winhighlight = winhl
 end

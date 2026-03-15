@@ -1,10 +1,10 @@
 ---@class snacks.win
----@field id number
----@field buf? number
----@field scratch_buf? number
----@field win? number
+---@field id integer
+---@field buf? integer
+---@field scratch_buf? integer
+---@field win? integer
 ---@field opts snacks.win.Config
----@field augroup? number
+---@field augroup? integer
 ---@field backdrop? snacks.win
 ---@field keys snacks.win.Keys[]
 ---@field events (snacks.win.Event|{event:string|string[]})[]
@@ -65,7 +65,7 @@ M.meta = {
 ---@field row? number|fun(self:snacks.win):number Row of the window. Use <1 for relative row. (default: center)
 ---@field minimal? boolean Disable a bunch of options to make the window minimal (default: true)
 ---@field position? "float"|"bottom"|"top"|"left"|"right"|"current"
----@field border? "none"|"top"|"right"|"bottom"|"left"|"top_bottom"|"hpad"|"vpad"|"rounded"|"single"|"double"|"solid"|"shadow"|"bold"|string[]|false|true
+---@field border? "none"|"top"|"right"|"bottom"|"left"|"top_bottom"|"hpad"|"vpad"|"rounded"|"single"|"double"|"solid"|"shadow"|"bold"|string[]|[string, string][]|false|true
 ---@field buf? number If set, use this buffer instead of creating a new one
 ---@field file? string If set, use this file instead of creating a new buffer
 ---@field enter? boolean Enter the window after opening (default: false)
@@ -92,7 +92,15 @@ local defaults = {
   position = "float",
   minimal = true,
   wo = {
-    winhighlight = "Normal:SnacksNormal,NormalNC:SnacksNormalNC,WinBar:SnacksWinBar,WinBarNC:SnacksWinBarNC,FloatTitle:SnacksTitle,FloatFooter:SnacksFooter,WinSeparator:SnacksWinSeparator",
+    winhighlight = {
+      Normal = "SnacksNormal",
+      NormalNC = "SnacksNormalNC",
+      WinBar = "SnacksWinBar",
+      WinBarNC = "SnacksWinBarNC",
+      FloatTitle = "SnacksTitle",
+      FloatFooter = "SnacksFooter",
+      WinSeparator = "SnacksWinSeparator",
+    },
   },
   bo = {},
   title_pos = "center",

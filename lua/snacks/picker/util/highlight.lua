@@ -303,14 +303,14 @@ function M.winhl(prefix, links)
     FloatFooter = "Footer",
     CursorLine = "CursorLine",
   }
-  local ret = {} ---@type string[]
+  local ret = {} ---@type table<string, string>
   local groups = {} ---@type table<string, string>
   for k, v in pairs(winhl) do
     groups[v] = links[k] or (prefix == "SnacksPicker" and k or ("SnacksPicker" .. v))
-    ret[#ret + 1] = ("%s:%s%s"):format(k, prefix, v)
+    ret[k] = prefix .. v
   end
   Snacks.util.set_hl(groups, { prefix = prefix, default = true })
-  return table.concat(ret, ",")
+  return ret
 end
 
 --- Resolves the first flex text in the line.
