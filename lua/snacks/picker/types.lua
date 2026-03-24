@@ -60,7 +60,7 @@
 ---@field recent fun(opts?: snacks.picker.recent.Config|{}): snacks.Picker
 ---@field registers fun(opts?: snacks.picker.Config|{}): snacks.Picker
 ---@field resume fun(): snacks.Picker
----@field scratch fun(opts?: snacks.picker.Config|{}): snacks.Picker
+---@field scratch fun(opts?: snacks.picker.scratch.Config|{}): snacks.Picker
 ---@field search_history fun(opts?: snacks.picker.history.Config|{}): snacks.Picker
 ---@field smart fun(opts?: snacks.picker.smart.Config|{}): snacks.Picker
 ---@field spelling fun(opts?: snacks.picker.Config|{}): snacks.Picker

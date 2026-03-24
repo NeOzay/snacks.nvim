@@ -155,8 +155,10 @@ function M.migrate()
 end
 
 --- Select a scratch buffer from a list of scratch buffers.
-function M.select()
-  return Snacks.picker.scratch()
+---@param opts? snacks.picker.scratch.Config|{}):
+---@return snacks.Picker
+function M.select(opts)
+  return Snacks.picker.scratch(opts)
 end
 
 --- Open a scratch buffer with the given options.
