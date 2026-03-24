@@ -75,11 +75,7 @@ function M.config.merge(...)
     local value = select(i, ...)
     if is_dict_like(ret) and is_dict(value) then
       for k, v in pairs(value) do
-        if k == "winhighlight" and ret[k] ~= nil then
-          ret[k] = Snacks.util.winhl(ret[k], v)
-        else
-          ret[k] = M.config.merge(ret[k], v)
-        end
+        ret[k] = M.config.merge(ret[k], v)
       end
     elseif value ~= nil then
       ret = value

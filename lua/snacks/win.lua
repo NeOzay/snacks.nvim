@@ -231,26 +231,37 @@ local event_stack = {} ---@type string[]
 function M.resolve(...)
   local done = {} ---@type table<string, boolean>
   local merge = {} ---@type snacks.win.Config[]
-  local stack = {}
+  local stack = {} ---@type (snacks.win.Config|string)[]
   for i = 1, select("#", ...) do
     local next = select(i, ...) ---@type snacks.win.Config|string?
     if next then
       table.insert(stack, next)
     end
   end
+  local winhls = {} ---@type (string|table<string,string>)[]
   while #stack > 0 do
     local next = table.remove(stack)
     next = type(next) == "string" and Snacks.config.styles[next] or next
-    ---@cast next snacks.win.Config?
-    if next and type(next) == "table" then
-      table.insert(merge, 1, next)
-      if next.style and not done[next.style] then
-        done[next.style] = true
-        table.insert(stack, next.style)
-      end
+    if not next or type(next) ~= "table" then
+      goto continue
     end
+
+    table.insert(merge, 1, next)
+    if next.wo and next.wo.winhighlight ~= nil then
+      table.insert(winhls, 1, next.wo.winhighlight)
+    end
+    if next.style and not done[next.style] then
+      done[next.style] = true
+      table.insert(stack, next.style)
+    end
+    ::continue::
   end
+
   local ret = #merge == 0 and {} or #merge == 1 and merge[1] or vim.tbl_deep_extend("force", {}, unpack(merge))
+  -- Merge winhighlight instead of overwriting
+  if #winhls > 1 and ret.wo then
+    ret.wo.winhighlight = Snacks.util.winhl(unpack(winhls))
+  end
   ret.style = nil
   return ret
 end

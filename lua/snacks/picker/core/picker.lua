@@ -18,7 +18,7 @@ local _id = 0
 ---@field resolved_layout snacks.picker.layout.Config
 ---@field list snacks.picker.list
 ---@field matcher snacks.picker.Matcher
----@field main number
+---@field main integer
 ---@field _main snacks.picker.Main
 ---@field preview snacks.picker.Preview
 ---@field shown? boolean

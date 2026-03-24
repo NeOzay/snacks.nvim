@@ -5,7 +5,7 @@
 ---@field filter? snacks.picker.Filter
 ---@field preview snacks.picker.preview
 ---@field state table<string, any>
----@field main? number
+---@field main? integer
 ---@field win_opts {main: snacks.win.Config|{}, layout: snacks.win.Config|{}, win: snacks.win.Config|{}}
 ---@field winhl string
 ---@field title? string
@@ -150,14 +150,13 @@ function M:update(picker)
     self.win.opts.win = nil
     self.win.layout = nil
   end
-  local winhl = self.winhl
   if main then
-    winhl = Snacks.util.winhl(vim.wo[main].winhighlight, {
-      Normal = "Normal",
-      CursorLine = "SnacksPickerPreviewCursorLine",
-    })
+    self.win.opts.wo.winhighlight = Snacks.util.winhl(
+      self.win.opts.wo.winhighlight,
+      vim.wo[main].winhighlight,
+      { Normal = "Normal", CursorLine = "SnacksPickerPreviewCursorLine" }
+    )
   end
-  self.win.opts.wo.winhighlight = winhl
 end
 
 --- refresh the preview after layout change
