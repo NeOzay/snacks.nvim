@@ -30,6 +30,7 @@ math.randomseed(os.time())
 ---@field key? string shortcut key
 ---@field hidden? boolean when `true`, the item will not be shown, but the key will still be assigned
 ---@field autokey? boolean automatically assign a numerical key
+---@field layout_row? number groupe de lignes horizontal (auto-assigné par ordre dans sections)
 ---@field label? string
 ---@field desc? string
 ---@field file? string
@@ -55,8 +56,17 @@ math.randomseed(os.time())
 ---@field package _? snacks.dashboard.Item._ the position of the item in the dashboard
 
 ---@private
+---@class snacks.dashboard.Band
+---@field panes snacks.dashboard.Item[][]
+---@field col number colonne de départ (centrage horizontal)
+---@field n_panes number nombre de panes dans cette band
+---@field row_start number première ligne de la band (1-indexed, avant offset vertical)
+---@field row_end number dernière ligne de la band
+
+---@private
 ---@class snacks.dashboard.Item._
 ---@field pane number 1-indexed
+---@field band number index de la band (1-indexed)
 ---@field row number 1-indexed
 ---@field col number 0-indexed
 
@@ -210,6 +220,7 @@ Snacks.util.set_hl(links, { prefix = "SnacksDashboard", default = true })
 ---@field row? number
 ---@field col? number
 ---@field panes? snacks.dashboard.Item[][]
+---@field bands? snacks.dashboard.Band[]
 ---@field lines? string[]
 ---@field augroup integer
 local D = {}
@@ -559,10 +570,24 @@ end
 function D:find(pos, from)
   from = from or pos
   local line = self.lines[pos[1]]
-  local char = vim.fn.charidx(line, pos[2]) -- map col to charachter index
+  local char = vim.fn.charidx(line, pos[2]) -- map col to character index
 
-  local pane = math.floor((char - self.col) / (self.opts.width + self.opts.pane_gap)) + 1
-  pane = math.max(1, math.min(pane, #self.panes))
+  -- find which band contains this row (adjusted for vertical centering)
+  local adjusted_row = pos[1] - (self.row or 0)
+  local band = self.bands and self.bands[1] or { col = self.col or 0, n_panes = #(self.panes or { {} }) }
+  local band_idx = 1
+  if self.bands then
+    for bi, b in ipairs(self.bands) do
+      if adjusted_row >= b.row_start and adjusted_row <= b.row_end then
+        band = b
+        band_idx = bi
+        break
+      end
+    end
+  end
+
+  local pane = math.floor((char - band.col) / (self.opts.width + self.opts.pane_gap)) + 1
+  pane = math.max(1, math.min(pane, band.n_panes))
   if pos[1] == from[1] then
     if pos[2] == from[2] - 1 then
       pane = pane - 1
@@ -570,11 +595,11 @@ function D:find(pos, from)
       pane = pane + 1
     end
   end
-  pane = math.max(1, math.min(pane, #self.panes))
+  pane = math.max(1, math.min(pane, band.n_panes))
 
   local ret ---@type snacks.dashboard.Item?
   for _, item in ipairs(self.items) do
-    if item._ and item._.pane == pane and item.action then
+    if item._ and item._.pane == pane and item._.band == band_idx and item.action then
       if ret and pos[1] < from[1] and item._.row > pos[1] then
         break
       end
@@ -587,62 +612,95 @@ function D:find(pos, from)
   return ret
 end
 
--- Layout in panes
+-- Layout in bands (horizontal row groups) each containing their own panes
 function D:layout()
   local max_panes =
     math.max(1, math.floor((self._size.width + self.opts.pane_gap) / (self.opts.width + self.opts.pane_gap)))
-  self.panes = {} ---@type snacks.dashboard.Item[][]
+
+  -- group items by layout_row, then by pane
+  local band_map = {} ---@type table<integer, table<integer, snacks.dashboard.Item[]>>
+  local band_order = {} ---@type integer[]
   for _, item in ipairs(self.items) do
     if not item.hidden then
+      local bi = item.layout_row or 1
       local pane = item.pane or 1
-      pane = math.fmod(pane - 1, max_panes) + 1 -- distribute panes evenly
-      self.panes[pane] = self.panes[pane] or {}
-      table.insert(self.panes[pane], item)
+      pane = math.fmod(pane - 1, max_panes) + 1
+      if not band_map[bi] then
+        band_map[bi] = {}
+        table.insert(band_order, bi)
+      end
+      band_map[bi][pane] = band_map[bi][pane] or {}
+      table.insert(band_map[bi][pane], item)
     end
   end
-  for p = 1, math.max(unpack(vim.tbl_keys(self.panes))) or 1 do
-    self.panes[p] = self.panes[p] or {}
+  table.sort(band_order)
+
+  self.bands = {} ---@type snacks.dashboard.Band[]
+  self.panes = {} ---@type snacks.dashboard.Item[][] backward compat
+  for _, bk in ipairs(band_order) do
+    local pane_map = band_map[bk]
+    local pane_keys = vim.tbl_keys(pane_map)
+    local n_panes = #pane_keys > 0 and math.max(unpack(pane_keys)) or 1
+    local total_w = self.opts.width * n_panes + self.opts.pane_gap * (n_panes - 1)
+    local col = math.floor((self._size.width - total_w) / 2)
+    local panes = {} ---@type snacks.dashboard.Item[][]
+    for p = 1, n_panes do
+      panes[p] = pane_map[p] or {}
+      self.panes[p] = self.panes[p] or {}
+      vim.list_extend(self.panes[p], panes[p])
+    end
+    table.insert(self.bands, { panes = panes, col = col, n_panes = n_panes, row_start = 0, row_end = 0 })
   end
 end
 
 -- Format and render the dashboard
 function D:render()
-  -- horizontal position
-  self.col = self.opts.col
-    or math.floor(self._size.width - (self.opts.width * #self.panes + self.opts.pane_gap * (#self.panes - 1))) / 2
-
   self.lines = {} ---@type string[]
   local extmarks = {} ---@type {row:number, col:number, opts:vim.api.keyset.set_extmark}[]
-  for p, pane in ipairs(self.panes) do
-    local indent = (" "):rep(p == 1 and self.col or self.opts.pane_gap)
-    local row = 0
-    for _, item in ipairs(pane or {}) do
-      for l, line in ipairs(self:format(item)) do
-        row = row + 1
-        if p > 1 and not self.lines[row] then -- add lines for empty panes
-          self.lines[row] = (" "):rep(self.col + (self.opts.width + self.opts.pane_gap) * (p - 1))
-        elseif p == 1 and line.width > self.opts.width then
-          self.lines[row] = (" "):rep(self.col - math.floor((line.width - self.opts.width) / 2))
-        else
-          self.lines[row] = (self.lines[row] or "") .. indent
-        end
-        if l == 1 then
-          item._ = { pane = p, row = row, col = #self.lines[row] - 1 }
-        end
-        ---@cast line snacks.dashboard.Line
-        for _, text in ipairs(line) do
-          self.lines[row] = self.lines[row] .. text[1]
-          if text.hl then
-            table.insert(extmarks, {
-              row = row - 1,
-              col = #self.lines[row] - #text[1],
-              opts = { hl_group = hl_groups[text.hl] or text.hl, end_col = #self.lines[row] },
-            })
+  local row_offset = 0
+
+  for bi, band in ipairs(self.bands) do
+    band.row_start = row_offset + 1
+    local band_row_end = row_offset
+
+    for p, pane in ipairs(band.panes) do
+      local indent = (" "):rep(p == 1 and band.col or self.opts.pane_gap)
+      local row = row_offset
+      for _, item in ipairs(pane or {}) do
+        for l, line in ipairs(self:format(item)) do
+          row = row + 1
+          if p > 1 and not self.lines[row] then -- fill missing rows for secondary panes
+            self.lines[row] = (" "):rep(band.col + (self.opts.width + self.opts.pane_gap) * (p - 1))
+          elseif p == 1 and line.width > self.opts.width then
+            self.lines[row] = (" "):rep(band.col - math.floor((line.width - self.opts.width) / 2))
+          else
+            self.lines[row] = (self.lines[row] or "") .. indent
           end
+          if l == 1 then
+            item._ = { pane = p, band = bi, row = row, col = #self.lines[row] - 1 }
+          end
+          ---@cast line snacks.dashboard.Line
+          for _, text in ipairs(line) do
+            self.lines[row] = self.lines[row] .. text[1]
+            if text.hl then
+              table.insert(extmarks, {
+                row = row - 1,
+                col = #self.lines[row] - #text[1],
+                opts = { hl_group = hl_groups[text.hl] or text.hl, end_col = #self.lines[row] },
+              })
+            end
+          end
+          band_row_end = math.max(band_row_end, row)
         end
       end
     end
+
+    band.row_end = band_row_end
+    row_offset = band_row_end
   end
+
+  -- backward compat: self.col = col of the first band
+  self.col = self.bands[1] and self.bands[1].col or 0
 
   -- vertical position
   self.row = self.opts.row or math.max(math.floor((self._size.height - #self.lines) / 2), 0)
@@ -703,7 +761,14 @@ function D:update()
   self.fire("UpdatePre")
   self._size = self:size()
 
-  self.items = self:resolve(self.opts.sections)
+  self.items = {}
+  for i, section in ipairs(self.opts.sections) do
+    local before = #self.items
+    self:resolve(section, self.items, nil)
+    for j = before + 1, #self.items do
+      self.items[j].layout_row = self.items[j].layout_row or i
+    end
+  end
 
   self:layout()
   self:keys()
